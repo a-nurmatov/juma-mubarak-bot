@@ -3,6 +3,8 @@ import * as cron from 'node-cron';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
 import * as http from 'http';
+import { IMG_CAPTIONS } from './captions';
+
 
 // Load environment variables
 dotenv.config();
@@ -65,17 +67,12 @@ async function getJumaImage(): Promise<string> {
   return `https://images.unsplash.com/photo-1592326871020-04f58c1a52f3?q=80&w=2565&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`;
 }
 
-// Function to generate a Juma Mubarak caption
+let captionOrder = 0;
+// Function to generate a Juma Mubarak caption with random variants
 function generateCaption(senderName?: string): string {
-  let caption = `🌙 *Juma Muborak!* \n\n
-🤲 *Alhamdulillah!* \n Bizni yana bir juma kuniga yetkazgan Allohga hamd bo‘lsin. \n
-🕋 *La ilaha illallah!* \n Uning rahmati cheksiz, marhamati bitmas-tuganmas. \n
-📖 *(Baqara: 152)* \n *"Bas, Meni yod eting, Men ham sizni yod etaman!"* \n
-🕌 *Allohning salomi, rahmati va barakoti \n Payg‘ambarimiz Muhammad Mustafo ﷺ ga bo‘lsin!* \n
 
-🕌 Allohning rahmati, muhabbati va barakasi ustingizga yog‘ilsin. \n
-📿 Ushbu muborak kun duolar, istaklar va ezgu niyatlar qabul bo‘ladigan fursat bo‘lsin.
-`;
+  captionOrder = ++captionOrder < IMG_CAPTIONS.length ? captionOrder : 0;
+  let caption = IMG_CAPTIONS[captionOrder];
 
   if (senderName) {
     caption += `\n\n🖋 *${senderName}*`;

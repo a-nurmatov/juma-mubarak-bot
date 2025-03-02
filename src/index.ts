@@ -1,4 +1,4 @@
-import { Telegraf } from 'telegraf';
+import { Telegraf, Context } from 'telegraf';
 import * as cron from 'node-cron';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
@@ -6,81 +6,139 @@ import * as dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-const BOT_TOKEN: string = process.env.BOT_TOKEN || '';
-const GROUP_CHAT_ID: string = process.env.GROUP_CHAT_ID || '';
-const PICSART_API_KEY: string = process.env.PICSART_API_KEY || '';
+const BOT_TOKEN: string = process.env.BOT_TOKEN?.trim() || '';
+const GROUP_CHAT_ID: string = process.env.GROUP_CHAT_ID?.trim() || '';
+const UNSPLASH_CLIENT_ID: string = process.env.UNSPLASH_CLIENT_ID?.trim() || '';
 
 if (!BOT_TOKEN || !GROUP_CHAT_ID) {
-    console.error('BOT_TOKEN and GROUP_CHAT_ID must be set.');
+    console.error('❌ BOT_TOKEN and GROUP_CHAT_ID must be set.');
     process.exit(1);
 }
 
 // Initialize bot
 const bot = new Telegraf(BOT_TOKEN);
 
-// Function to fetch or generate image
+// Logger function to avoid repetition
+function log(type: 'info' | 'error', message: string, error?: any): void {
+    const prefix = type === 'info' ? 'ℹ️' : '❌';
+    if (type === 'info') {
+        console.log(`${prefix} ${message}`);
+    } else {
+        console.error(`${prefix} ${message}`, error instanceof Error ? error.message : error);
+    }
+}
+
+// Function to fetch a random mosque image
 async function getJumaImage(): Promise<string> {
-    if (PICSART_API_KEY) {
+    if (UNSPLASH_CLIENT_ID) {
         try {
-            const response = await axios.post<{ image_url: string }>(
-                'https://api.picsart.com/v1/text2image',
-                { text: 'Juma Mubarak', style: 'default' },
-                { headers: { Authorization: `Bearer ${PICSART_API_KEY}` } }
-            );
-            return response.data.image_url;
+            const response = await axios.get('https://api.unsplash.com/photos/random', {
+                params: { query: 'mosque', client_id: UNSPLASH_CLIENT_ID },
+            });
+            return response.data.urls.regular;
         } catch (error) {
-            console.error('Picsart API error:', error instanceof Error ? error.message : error);
-            // Fallback to Unsplash if Picsart fails
+            log('error', 'Unsplash API error', error);
         }
     }
-    const randomParam = Math.random().toString(36).substring(7);
-    return `https://source.unsplash.com/featured/?islamic,friday&${randomParam}`;
+    return `https://images.unsplash.com/photo-1592326871020-04f58c1a52f3?q=80&w=2565&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`;
+}
+
+// Function to generate a Juma Mubarak caption
+function generateCaption(senderName?: string): string {
+    let caption = `🌙 *Juma Muborak!*  
+🕌 Allohning rahmati, muhabbati va barakasi ustingizga yog‘ilsin.  
+📿 Ushbu muborak kun duolar, istaklar va ezgu niyatlar qabul bo‘ladigan fursat bo‘lsin.  
+
+🤲 *Alhamdulillah!* Bizni yana bir juma kuniga yetkazgan Allohga hamd bo‘lsin.  
+🕋 *La ilaha illallah!* Uning rahmati cheksiz, marhamati bitmas-tuganmas.  
+📖 *"Bas, Meni yod eting, Men ham sizni yod etaman!"* *(Baqara: 152)*  
+🕌 *Allohning salomi, rahmati va barakoti Payg‘ambarimiz Muhammad Mustafo ﷺ ga bo‘lsin!*  
+
+✨ Bugungi juma sizga ezgulik, qalbingizga osoyishtalik, oilangizga tinchlik va hayotingizga fayz olib kelsin.  
+📿 *Alloh sizni va yaqinlaringizni doimo himoya qilsin!*  
+🤲 *Duolaringiz ijobat bo‘lsin!*`;
+
+    if (senderName) {
+        caption += `\n\n🖋 *${senderName}*`;
+    }
+
+    return caption;
 }
 
 // Function to send Juma Mubarak image
-async function sendJumaMubarak(): Promise<void> {
+async function sendJumaMubarak(senderName?: string): Promise<void> {
     try {
         const imageUrl = await getJumaImage();
-        await bot.telegram.sendPhoto(GROUP_CHAT_ID, imageUrl, {
-            caption: 'Juma Mubarak! May your Friday be blessed.',
-        });
-        console.log('Juma Mubarak message sent!');
+        const caption = generateCaption(senderName);
+
+        await bot.telegram.sendPhoto(GROUP_CHAT_ID, imageUrl, { caption, parse_mode: 'Markdown' });
+
+        log('info', 'Juma Mubarak message sent!');
     } catch (error) {
-        console.error('Error sending message:', error instanceof Error ? error.message : error);
+        log('error', 'Error sending message', error);
     }
 }
 
-// Handle /juma-mubarak command
-bot.command('jumaMubarak', async (ctx) => {
-    if (ctx.chat.id.toString() === GROUP_CHAT_ID) {
-        await sendJumaMubarak();
+bot.command('yordam', async (ctx) => {
+    const helpMessage = `
+🤖 *Bot Buyruqlari*:
+
+/jumaTabrik - Juma muborak rasmini yuborish  
+/yordam - Bot haqida ma’lumot olish  
+
+ℹ️ Buyruqlardan foydalanish uchun *"/"* belgisini kiriting va kerakli buyruqni tanlang.
+    `;
+
+    await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
+});
+
+// Handle /jumaMubarak command in group chat
+bot.command('jumaTabrik', async (ctx) => {
+    if (ctx.chat.id.toString().trim() === GROUP_CHAT_ID) {
+        const senderName = ctx.from?.first_name
+            ? `${ctx.from.first_name}${ctx.from.last_name ? ' ' + ctx.from.last_name : ''}`
+            : `Muallif noma'lum`; // Fallback if no name available
+
+        await sendJumaMubarak(senderName);
     } else {
         await ctx.reply('This command is only available in the designated group.');
     }
 });
 
-// Schedule cron job for every Friday at 9:00 AM (UTC)
-cron.schedule('0 9 * * 5', () => {
-    console.log('Running scheduled Juma Mubarak task...');
-    sendJumaMubarak();
+
+// Schedule cron job for every Friday at 5:00 AM (UTC) - No sender name for automated messages
+cron.schedule('0 5 * * 5', async () => {
+    log('info', 'Running scheduled Juma Mubarak task at 5:00 AM (UTC)...');
+    try {
+        await sendJumaMubarak(); // No sender name in automated messages
+        log('info', 'Juma Mubarak message successfully sent.');
+    } catch (error) {
+        log('error', 'Scheduled task error', error);
+    }
 });
 
 // Launch bot
-bot.launch().then(() => {
-    console.log('Bot is running...');
-});
+(async () => {
+    try {
+        await bot.launch(() => {
+            log('info', 'Bot is running...')
+        });
+    } catch (error) {
+        log('error', 'Failed to start bot', error);
+        process.exit(1);
+    }
+})();
 
 // Graceful shutdown
 process.once('SIGINT', () => {
-    console.log('Shutting down bot...');
+    log('info', 'Shutting down bot...');
     bot.stop('SIGINT');
 });
 process.once('SIGTERM', () => {
-    console.log('Shutting down bot...');
+    log('info', 'Shutting down bot...');
     bot.stop('SIGTERM');
 });
 
-// Keep process alive (Render-specific tweak)
-process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-});
+// Handle unexpected errors
+process.on('uncaughtException', (error) => log('error', 'Uncaught Exception', error));
+process.on('unhandledRejection', (reason) => log('error', 'Unhandled Promise Rejection', reason));

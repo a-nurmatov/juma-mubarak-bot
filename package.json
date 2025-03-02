@@ -1,0 +1,19 @@
+{
+  "name": "juma-mubarak-bot",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node api/send-juma.ts"
+  },
+  "dependencies": {
+    "@vercel/node": "^2.3.0",
+    "axios": "^1.6.7",
+    "telegraf": "^4.15.3"
+  },
+  "devDependencies": {
+    "@types/axios": "^0.14.0",
+    "@types/node": "^20.11.20",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

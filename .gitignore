@@ -9,5 +9,5 @@ yarn-error.log*
 .pnp.js
 
 .vscode/*
-.env
 .vercel
+/.env

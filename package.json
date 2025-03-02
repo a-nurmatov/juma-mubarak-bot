@@ -2,17 +2,21 @@
   "name": "juma-mubarak-bot",
   "version": "1.0.0",
   "scripts": {
+    "start": "node dist/index.js",
     "build": "tsc",
-    "dev": "ts-node api/send-juma.ts"
+    "dev": "ts-node src/index.ts"
   },
   "dependencies": {
-    "@vercel/node": "^2.3.0",
     "axios": "^1.6.7",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
     "telegraf": "^4.15.3"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
+    "@types/dotenv": "^8.2.0",
     "@types/node": "^20.11.20",
+    "@types/node-cron": "^3.0.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }

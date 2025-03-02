@@ -89,7 +89,7 @@ bot.command('yordam', async (ctx) => {
   const helpMessage = `
 🤖 *Bot Buyruqlari*:
 
-/jumaTabrik - Juma muborak rasmini yuborish  
+/tabrik - Juma bilan tabriklash  
 /yordam - Bot haqida ma’lumot olish  
 
 ℹ️ Buyruqlardan foydalanish uchun *"/"* belgisini kiriting va kerakli buyruqni tanlang.

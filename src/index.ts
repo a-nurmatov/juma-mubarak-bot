@@ -51,7 +51,7 @@ async function sendJumaMubarak(): Promise<void> {
 }
 
 // Handle /juma-mubarak command
-bot.command('juma-mubarak', async (ctx) => {
+bot.command('jumaMubarak', async (ctx) => {
     if (ctx.chat.id.toString() === GROUP_CHAT_ID) {
         await sendJumaMubarak();
     } else {

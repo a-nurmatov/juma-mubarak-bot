@@ -2,16 +2,17 @@ import { Telegraf } from 'telegraf';
 import * as cron from 'node-cron';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
+import * as http from 'http';
 
 // Load environment variables
 dotenv.config();
 
 const BOT_TOKEN: string = process.env.BOT_TOKEN?.trim() || '';
-const GROUP_CHAT_ID: string = process.env.GROUP_CHAT_ID?.trim() || '';
 const UNSPLASH_CLIENT_ID: string = process.env.UNSPLASH_CLIENT_ID?.trim() || '';
+const PORT: string = process.env.PORT || '3000'; // Default to 3000 locally
 
-if (!BOT_TOKEN || !GROUP_CHAT_ID) {
-  console.error('❌ BOT_TOKEN and GROUP_CHAT_ID must be set.');
+if (!BOT_TOKEN) {
+  console.error('❌ BOT_TOKEN must be set.');
   process.exit(1);
 }
 
@@ -30,6 +31,21 @@ function log(type: 'info' | 'error', message: string, error?: any): void {
     );
   }
 }
+
+// Simple HTTP server for Render
+const server = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot is running');
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+  }
+});
+
+server.listen(PORT, () => {
+  log('info', `HTTP server running on port ${PORT}`);
+});
 
 // Function to fetch a random mosque image
 async function getJumaImage(): Promise<string> {
@@ -51,13 +67,13 @@ async function getJumaImage(): Promise<string> {
 
 // Function to generate a Juma Mubarak caption
 function generateCaption(senderName?: string): string {
-  let caption = `🌙 *Juma Muborak!* \n
-🤲 *Alhamdulillah!* Bizni yana bir juma kuniga yetkazgan Allohga hamd bo‘lsin.  
-🕋 *La ilaha illallah!* Uning rahmati cheksiz, marhamati bitmas-tuganmas.  
-📖 *"Bas, Meni yod eting, Men ham sizni yod etaman!"* *(Baqara: 152)*  
-🕌 *Allohning salomi, rahmati va barakoti Payg‘ambarimiz Muhammad Mustafo ﷺ ga bo‘lsin!* 
+  let caption = `🌙 *Juma Muborak!* \n\n
+🤲 *Alhamdulillah!* \n Bizni yana bir juma kuniga yetkazgan Allohga hamd bo‘lsin. \n
+🕋 *La ilaha illallah!* \n Uning rahmati cheksiz, marhamati bitmas-tuganmas. \n
+📖 *(Baqara: 152)* \n *"Bas, Meni yod eting, Men ham sizni yod etaman!"* \n
+🕌 *Allohning salomi, rahmati va barakoti \n Payg‘ambarimiz Muhammad Mustafo ﷺ ga bo‘lsin!* \n
 
-🕌 Allohning rahmati, muhabbati va barakasi ustingizga yog‘ilsin.  
+🕌 Allohning rahmati, muhabbati va barakasi ustingizga yog‘ilsin. \n
 📿 Ushbu muborak kun duolar, istaklar va ezgu niyatlar qabul bo‘ladigan fursat bo‘lsin.
 `;
 
@@ -69,12 +85,12 @@ function generateCaption(senderName?: string): string {
 }
 
 // Function to send Juma Mubarak image
-async function sendJumaMubarak(senderName?: string): Promise<void> {
+async function sendJumaMubarak(chatId: string, senderName?: string): Promise<void> {
   try {
     const imageUrl = await getJumaImage();
     const caption = generateCaption(senderName);
 
-    await bot.telegram.sendPhoto(GROUP_CHAT_ID, imageUrl, {
+    await bot.telegram.sendPhoto(chatId, imageUrl, {
       caption,
       parse_mode: 'Markdown',
     });
@@ -98,21 +114,20 @@ bot.command('yordam', async (ctx) => {
   await ctx.reply(helpMessage, { parse_mode: 'Markdown' });
 });
 
-// Handle /jumaMubarak command in group chat
+// Handle /tabrik command in any chat
 bot.command('tabrik', async (ctx) => {
   const senderName = ctx.from?.first_name
     ? `${ctx.from.first_name}${ctx.from.last_name ? ' ' + ctx.from.last_name : ''}`
-    : `Muallif noma'lum`; // Fallback if no name available
-
-  await sendJumaMubarak(senderName);
+    : `Muallif noma'lum`;
+  await sendJumaMubarak(ctx.chat.id.toString(), senderName);
 });
 
-// Schedule cron job for every Friday at 5:00 AM (UTC) - No sender name for automated messages
-cron.schedule('0 5 * * 5', async () => {
-  log('info', 'Running scheduled Juma Mubarak task at 5:00 AM (UTC)...');
+// Schedule cron job for every Friday at 0:00 AM (UTC)
+cron.schedule('0 0 * * 5', async () => {
+  log('info', 'Running scheduled Juma Mubarak task at 0:00 AM (UTC)...');
   try {
-    await sendJumaMubarak(); // No sender name in automated messages
-    log('info', 'Juma Mubarak message successfully sent.');
+    await sendJumaMubarak(process.env.GROUP_CHAT_ID || '');
+    log('info', 'Scheduled Juma Mubarak message successfully sent.');
   } catch (error) {
     log('error', 'Scheduled task error', error);
   }
@@ -121,9 +136,7 @@ cron.schedule('0 5 * * 5', async () => {
 // Launch bot
 (async () => {
   try {
-    await bot.launch(() => {
-      log('info', 'Bot is running...');
-    });
+    await bot.launch(() => log('info', 'Bot is running...'));
   } catch (error) {
     log('error', 'Failed to start bot', error);
     process.exit(1);
@@ -134,10 +147,12 @@ cron.schedule('0 5 * * 5', async () => {
 process.once('SIGINT', () => {
   log('info', 'Shutting down bot...');
   bot.stop('SIGINT');
+  server.close();
 });
 process.once('SIGTERM', () => {
   log('info', 'Shutting down bot...');
   bot.stop('SIGTERM');
+  server.close();
 });
 
 // Handle unexpected errors
